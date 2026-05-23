@@ -1,0 +1,39 @@
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+body { background-color: #121212; color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; height: 100vh; height: 100dvh; display: flex; flex-direction: column; touch-action: none; }
+#top-bar { height: 60px; background-color: #1e1e1e; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; z-index: 40; }
+#menu-title { font-weight: 800; font-size: 22px; color: #4CAF50; }
+#menu-btn { font-size: 30px; cursor: pointer; color: #4CAF50; }
+#dropdown-menu { position: absolute; top: 65px; right: 15px; background-color: #262626; border: 1px solid #4CAF50; border-radius: 12px; z-index: 100; display: flex; flex-direction: column; overflow: hidden; }
+.menu-item { padding: 18px 25px; border-bottom: 1px solid #333; font-size: 14px; font-weight: 600; cursor: pointer; color: #e0e0e0; display: flex; align-items: center; gap: 12px; }
+.menu-item:hover { background-color: #333; color: #4CAF50; }
+#viewport-container { flex: 1; position: relative; background-color: #121212; overflow: hidden; }
+#topoCanvas { width: 100%; height: 100%; display: block; touch-action: none; }
+#crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff4444; font-size: 32px; pointer-events: none; z-index: 10; }
+@media (pointer: fine) { #crosshair { display: none !important; } canvas { cursor: crosshair; } }
+#minimap-container { position: absolute; top: 75px; right: 15px; width: 150px; height: 150px; background: rgba(18, 18, 18, 0.85); border: 1px solid #4CAF50; border-radius: 8px; z-index: 20; box-shadow: 0 4px 12px rgba(0,0,0,0.5); cursor: crosshair; overflow: hidden;}
+#minimapCanvas { width: 100%; height: 100%; display: block; }
+@media (max-width: 600px) { #minimap-container { width: 110px; height: 110px; top: 70px; } }
+#search-container { position: absolute; top: 15px; left: 15px; right: 15px; z-index: 25; }
+#search-input { width: 100%; padding: 16px; border-radius: 12px; border: 2px solid #4CAF50; background-color: #1e1e1e; color: white; font-size: 18px; font-weight: 600; outline: none; }
+#search-results { background-color: #2c2c2c; border-radius: 0 0 12px 12px; max-height: 200px; overflow-y: auto; margin-top: -4px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+.search-item { padding: 16px; border-bottom: 1px solid #444; color: white; cursor: pointer; }
+#history-controls { position: absolute; top: 15px; left: 15px; display: flex; gap: 12px; z-index: 20; }
+#history-controls button { width: 52px; height: 52px; border-radius: 12px; background-color: #262626; border: 1px solid #4CAF50; color: #4CAF50; display: flex; justify-content: center; align-items: center; cursor: pointer; }
+#history-controls button:disabled { opacity: 0.2; border-color: #555; color: #555; cursor: default; }
+#btn-recenter { position: absolute; top: 15px; right: 15px; padding: 12px 18px; border-radius: 12px; background-color: #262626; border: 1px solid #4CAF50; color: white; font-size: 15px; font-weight: 800; z-index: 20; cursor: pointer; }
+#btn-recenter span { font-size: 22px; color: #4CAF50; }
+#hud-info { position: absolute; bottom: 15px; left: 15px; right: 15px; background: rgba(18, 18, 18, 0.95); border: 1px solid #333; border-left: 5px solid #4CAF50; padding: 16px; border-radius: 14px; font-size: 15px; z-index: 20; }
+#hud-text { line-height: 1.6; font-weight: 500; }
+#hud-actions { margin-top: 15px; display: flex; gap: 12px; }
+button { padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; border: none; background-color: #4CAF50; color: white; cursor: pointer; flex: 1; }
+#btn-acao-2 { background-color: #e53935; }
+#mesh-filter-container { margin-top: 12px; border-top: 1px solid #444; padding-top: 10px; }
+#mesh-filter-slider { width: 100%; accent-color: #4CAF50; height: 30px; cursor: pointer; }
+#bottom-bar { height: 90px; background-color: #1e1e1e; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 30; padding: 0 10px; }
+.tool-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 75px; height: 75px; border-radius: 14px; color: #777; transition: 0.2s; cursor: pointer; }
+.tool-icon { font-size: 32px; margin-bottom: 4px; }
+.tool-name { font-size: 12px; font-weight: 700; }
+.tool-btn.active { color: #4CAF50; background-color: #2a3a2a; }
+.hidden { display: none !important; }
+#modal-tutorial { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:300; display:flex; justify-content:center; align-items:center; }
+.modal-content { background:#262626; padding:25px; border-radius:16px; border:1px solid #4CAF50; max-width:400px; width:90%; }
