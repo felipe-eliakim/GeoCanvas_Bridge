@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,25 +9,28 @@
     <script src="https://unpkg.com/delaunator@5.0.0/delaunator.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://unpkg.com/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div id="top-bar">
         <div id="menu-title">GeoCanvas</div>
         <div id="menu-btn">☰</div>
     </div>
-    
+
     <div id="dropdown-menu" class="hidden">
         <label for="file-upload" class="menu-item">📂 Abrir Novo Arquivo</label>
-        <input type="file" id="file-upload" accept=".txt,.csv,.json" style="display: none;">
-        
+        <input type="file" id="file-upload" accept=".txt,.csv,.json,.dxf" style="display: none;">
+
         <label for="ref-upload" class="menu-item">📑 Carregar Referência (Overlay)</label>
-        <input type="file" id="ref-upload" accept=".txt,.csv,.json" style="display: none;">
+        <input type="file" id="ref-upload" accept=".txt,.csv,.json,.dxf" style="display: none;">
 
         <div class="menu-item" id="btn-salvar-projeto">💾 Salvar Backup JSON</div>
         <div class="menu-item" id="btn-exportar-dxf">📐 Exportar AutoCAD (DXF)</div>
         <div class="menu-item" id="btn-exportar-pdf">📄 Exportar Relatório PDF</div>
-        <div class="menu-item" id="btn-tutorial" style="border-top: 1px solid #444; color: #4CAF50;">❓ Ajuda / Tutorial</div>
+        <div class="menu-item" id="btn-tutorial" style="border-top: 1px solid #444; color: #4CAF50;">❓ Ajuda / Tutorial
+        </div>
     </div>
 
     <!-- Modal do Tutorial -->
@@ -35,14 +39,14 @@
             <h3>📖 Guia Profissional</h3>
             <div id="tutorial-text">
                 <p><strong>Comandos Desktop:</strong><br>
-                • <b>Enter ou Esc:</b> Soltar ponto/Finalizar<br>
-                • <b>Delete:</b> Apagar ponto selecionado<br>
-                • <b>Setas:</b> Mover tela (Notebook)<br>
-                • <b>Ctrl+Z / Ctrl+Y:</b> Histórico</p>
+                    • <b>Enter ou Esc:</b> Soltar ponto/Finalizar<br>
+                    • <b>Delete:</b> Apagar ponto selecionado<br>
+                    • <b>Setas:</b> Mover tela (Notebook)<br>
+                    • <b>Ctrl+Z / Ctrl+Y:</b> Histórico</p>
                 <p><strong>Navegação Mobile:</strong><br>
-                • Arraste o mapa sob a mira central.</p>
+                    • Arraste o mapa sob a mira central.</p>
                 <p><strong>Sobreposição (Overlay):</strong><br>
-                • Carregue um segundo arquivo como referência. Ele aparecerá tracejado ao fundo.</p>
+                    • Carregue um segundo arquivo como referência. Ele aparecerá tracejado ao fundo.</p>
             </div>
             <button id="btn-close-tutorial">Entendido</button>
         </div>
@@ -63,10 +67,16 @@
 
         <div id="history-controls">
             <button id="btn-undo" title="Desfazer (Ctrl+Z)" disabled>
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M3 7v6h6"></path><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path></svg>
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none">
+                    <path d="M3 7v6h6"></path>
+                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                </svg>
             </button>
             <button id="btn-redo" title="Refazer (Ctrl+Y)" disabled>
-                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 7v6h-6"></path><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path></svg>
+                <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none">
+                    <path d="M21 7v6h-6"></path>
+                    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"></path>
+                </svg>
             </button>
         </div>
 
@@ -86,14 +96,20 @@
     </div>
 
     <div id="bottom-bar">
-        <div class="tool-btn active" data-tool="VIEW"><span class="tool-icon">👁️</span><span class="tool-name">Visão</span></div>
-        <div class="tool-btn" data-tool="MEASURE"><span class="tool-icon">📏</span><span class="tool-name">Medir</span></div>
-        <div class="tool-btn" data-tool="SEARCH"><span class="tool-icon">🔍</span><span class="tool-name">Buscar</span></div>
-        <div class="tool-btn" data-tool="GROUP"><span class="tool-icon">🔗</span><span class="tool-name">Ligar</span></div>
-        <div class="tool-btn" data-tool="CONTOUR"><span class="tool-icon">〰️</span><span class="tool-name">Curvas</span></div>
+        <div class="tool-btn active" data-tool="VIEW"><span class="tool-icon">👁️</span><span
+                class="tool-name">Visão</span></div>
+        <div class="tool-btn" data-tool="MEASURE"><span class="tool-icon">📏</span><span class="tool-name">Medir</span>
+        </div>
+        <div class="tool-btn" data-tool="SEARCH"><span class="tool-icon">🔍</span><span class="tool-name">Buscar</span>
+        </div>
+        <div class="tool-btn" data-tool="GROUP"><span class="tool-icon">🔗</span><span class="tool-name">Ligar</span>
+        </div>
+        <div class="tool-btn" data-tool="CONTOUR"><span class="tool-icon">〰️</span><span class="tool-name">Curvas</span>
+        </div>
     </div>
 
     <!-- MUDANÇA AQUI: type="module" -->
     <script type="module" src="Js/main.js"></script>
 </body>
+
 </html>

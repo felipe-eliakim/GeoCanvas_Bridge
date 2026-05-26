@@ -1,8 +1,7 @@
 import { STATE, UI, CONFIG } from './state.js';
-import { calculateContours, render } from './engine.js'; // Note que puxamos o render do engine.js (ou render.js dependendo de como você nomeou, mas na arquitetura passei engine e render). Ajustando:
-// Correção da importação baseada na modularização anterior:
-// import { calculateContours } from './engine.js';
-// import { render } from './render.js';
+import { calculateContours } from './engine.js';
+import { render } from './render.js';
+import { parseDXF } from './dxfImporter.js'; // NOVO: Importação do módulo DXF
 
 // --- HISTÓRICO ---
 function saveState() {
@@ -100,7 +99,7 @@ function updateHUD(ax, ay) {
                 }
                 if (STATE.currentTool === 'MEASURE') {
                     UI.hudText.innerHTML += `<hr style="border-color:#444; margin:8px 0;"><strong>📏 DIST: ${Math.hypot(p.x-STATE.activePoint.x, p.y-STATE.activePoint.y).toFixed(3)}m</strong>`;
-                    if (!STATE.isDesktop) UI.hudText.innerHTML += `<br><small style="color:#aaa;"><b>Enter</b> soltar | Clique nova medida</small>`;
+                    if (!STATE.isTouchDevice) UI.hudText.innerHTML += `<br><small style="color:#aaa;"><b>Enter</b> soltar | Clique nova medida</small>`;
                 } else { 
                     if (!STATE.isTouchDevice) UI.hudText.innerHTML += `<br><small style="color:#aaa;"><b>Enter</b> soltar | Clique conectar</small>`; 
                 }
@@ -132,7 +131,7 @@ window.addEventListener('keydown', e => {
     if (isCtrl && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
     if (isCtrl && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     if (e.key === 'Enter' || e.key === 'Escape') { STATE.activePoint = null; handleSnap(); }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && STATE.focusedPoint && !STATE.focusedPoint.isRef) { // Impede apagar da referência
+    if ((e.key === 'Delete' || e.key === 'Backspace') && STATE.focusedPoint && !STATE.focusedPoint.isRef) { 
         saveState();
         STATE.points = STATE.points.filter(p => p.id !== STATE.focusedPoint.id);
         STATE.connections = STATE.connections.filter(c => c.a.id !== STATE.focusedPoint.id && c.b.id !== STATE.focusedPoint.id);
@@ -144,21 +143,88 @@ window.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') { STATE.view.offsetX -= CONFIG.PAN_STEP; import('./render.js').then(module => module.render()); }
 });
 
-UI.canvas.addEventListener('mousedown', e => { if (STATE.isTouchDevice) return; STATE.mouse.isDragging = true; STATE.mouse.lastX = e.clientX; STATE.mouse.lastY = e.clientY; STATE.mouse.moved = false; });
+// --- NAVEGAÇÃO DESKTOP ---
+UI.canvas.addEventListener('mousedown', e => { 
+    if (STATE.isTouchDevice) return; 
+    STATE.mouse.isDragging = true; 
+    UI.canvas.style.cursor = 'grabbing'; // Vira a "mãozinha" segurando o mapa
+    STATE.mouse.lastX = e.clientX; 
+    STATE.mouse.lastY = e.clientY; 
+    STATE.mouse.moved = false; 
+});
+
 window.addEventListener('mousemove', e => {
     const rect = UI.canvas.getBoundingClientRect(); STATE.mouse.x = e.clientX - rect.left; STATE.mouse.y = e.clientY - rect.top;
     if (STATE.mouse.isDragging && !STATE.isTouchDevice) { STATE.view.offsetX += e.clientX - STATE.mouse.lastX; STATE.view.offsetY += e.clientY - STATE.mouse.lastY; STATE.mouse.lastX = e.clientX; STATE.mouse.lastY = e.clientY; STATE.mouse.moved = true; import('./render.js').then(module => module.render()); }
     if (UI.searchContainer.classList.contains('hidden')) handleSnap();
 });
-window.addEventListener('mouseup', e => { if (STATE.isTouchDevice) return; STATE.mouse.isDragging = false; if (!STATE.mouse.moved && e.button === 0 && STATE.focusedPoint) executeAction(); });
-UI.canvas.addEventListener('wheel', e => { e.preventDefault(); const delta = e.deltaY > 0 ? 0.85 : 1.15; const prevScale = STATE.view.scale; STATE.view.scale *= delta; STATE.view.offsetX = STATE.mouse.x - (STATE.mouse.x - STATE.view.offsetX) * (STATE.view.scale / prevScale); STATE.view.offsetY = STATE.mouse.y - (STATE.mouse.y - STATE.view.offsetY) * (STATE.view.scale / prevScale); import('./render.js').then(module => module.render()); }, { passive: false });
 
-// TOUCH MOBILE
+window.addEventListener('mouseup', e => { 
+    if (STATE.isTouchDevice) return; 
+    STATE.mouse.isDragging = false; 
+    UI.canvas.style.cursor = ''; // Volta ao cursor padrão ao soltar
+    if (!STATE.mouse.moved && e.button === 0 && STATE.focusedPoint) executeAction(); 
+});
+
+UI.canvas.addEventListener('wheel', e => { 
+    e.preventDefault(); 
+    // Zoom suave (8% em vez de 15%)
+    const delta = e.deltaY > 0 ? 0.92 : 1.08; 
+    const prevScale = STATE.view.scale; 
+    STATE.view.scale *= delta; 
+    STATE.view.offsetX = STATE.mouse.x - (STATE.mouse.x - STATE.view.offsetX) * (STATE.view.scale / prevScale); 
+    STATE.view.offsetY = STATE.mouse.y - (STATE.mouse.y - STATE.view.offsetY) * (STATE.view.scale / prevScale); 
+    import('./render.js').then(module => module.render()); 
+}, { passive: false });
+
+// --- TOUCH MOBILE BLINDADO ---
 let initialPinchDist = null, initialScale = 1;
-UI.canvas.addEventListener('touchstart', e => { if (!STATE.isTouchDevice) return; if (e.touches.length === 1) { STATE.mouse.isDragging = true; STATE.mouse.lastX = e.touches[0].clientX; STATE.mouse.lastY = e.touches[0].clientY; } else { initialPinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); initialScale = STATE.view.scale; } }, { passive: false });
-UI.canvas.addEventListener('touchmove', e => { if (!STATE.isTouchDevice) return; e.preventDefault(); if (STATE.mouse.isDragging && e.touches.length === 1) { STATE.view.offsetX += e.touches[0].clientX - STATE.mouse.lastX; STATE.view.offsetY += e.touches[0].clientY - STATE.mouse.lastY; STATE.mouse.lastX = e.touches[0].clientX; STATE.mouse.lastY = e.touches[0].clientY; handleSnap(); } else if (e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); const pS = STATE.view.scale; STATE.view.scale = initialScale * (d/initialPinchDist); STATE.view.offsetX = (UI.canvas.width/2) - (UI.canvas.width/2 - STATE.view.offsetX)*(STATE.view.scale/pS); STATE.view.offsetY = (UI.canvas.height/2) - (UI.canvas.height/2 - STATE.view.offsetY)*(STATE.view.scale/pS); import('./render.js').then(module => module.render()); } }, { passive: false });
-UI.canvas.addEventListener('touchend', () => { STATE.mouse.isDragging = false; initialPinchDist = null; });
+const elCrosshair = document.getElementById('crosshair'); 
+if (elCrosshair) elCrosshair.style.transition = 'opacity 0.2s'; // Garante que a cruz suma e volte com suavidade
 
+UI.canvas.addEventListener('touchstart', e => { 
+    if (!STATE.isTouchDevice) return; 
+    e.preventDefault(); 
+    
+    if (e.touches.length === 1) { 
+        STATE.mouse.isDragging = true; 
+        if (elCrosshair) elCrosshair.style.opacity = '0'; // Esconde a cruz ao tocar
+        STATE.mouse.lastX = e.touches[0].clientX; 
+        STATE.mouse.lastY = e.touches[0].clientY; 
+    } else if (e.touches.length === 2) { 
+        initialPinchDist = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); 
+        initialScale = STATE.view.scale; 
+    } 
+}, { passive: false });
+
+UI.canvas.addEventListener('touchmove', e => { 
+    if (!STATE.isTouchDevice) return; 
+    e.preventDefault(); 
+    
+    if (STATE.mouse.isDragging && e.touches.length === 1) { 
+        STATE.view.offsetX += e.touches[0].clientX - STATE.mouse.lastX; 
+        STATE.view.offsetY += e.touches[0].clientY - STATE.mouse.lastY; 
+        STATE.mouse.lastX = e.touches[0].clientX; 
+        STATE.mouse.lastY = e.touches[0].clientY; 
+        handleSnap(); 
+    } else if (e.touches.length === 2) { 
+        const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); 
+        const pS = STATE.view.scale; 
+        STATE.view.scale = initialScale * (d/initialPinchDist); 
+        STATE.view.offsetX = (UI.canvas.width/2) - (UI.canvas.width/2 - STATE.view.offsetX)*(STATE.view.scale/pS); 
+        STATE.view.offsetY = (UI.canvas.height/2) - (UI.canvas.height/2 - STATE.view.offsetY)*(STATE.view.scale/pS); 
+        import('./render.js').then(module => module.render()); 
+    } 
+}, { passive: false });
+
+UI.canvas.addEventListener('touchend', e => { 
+    if (e.cancelable) e.preventDefault();
+    STATE.mouse.isDragging = false; 
+    if (elCrosshair) elCrosshair.style.opacity = '1'; // A cruz reaparece no centro para a mira
+    initialPinchDist = null; 
+});
+
+// --- EVENTOS UI E ARQUIVOS ---
 UI.minimapCanvas.addEventListener('mousedown', e => {
     const rect = UI.minimapCanvas.getBoundingClientRect();
     const clickX = (e.clientX - rect.left) * (UI.minimapCanvas.width / rect.width), clickY = (e.clientY - rect.top) * (UI.minimapCanvas.height / rect.height);
@@ -166,7 +232,6 @@ UI.minimapCanvas.addEventListener('mousedown', e => {
     STATE.view.offsetX = (UI.canvas.width / 2) - realX * STATE.view.scale; STATE.view.offsetY = (UI.canvas.height / 2) + realY * STATE.view.scale; import('./render.js').then(module => module.render());
 });
 
-// --- EVENTOS UI E ARQUIVOS ---
 document.getElementById('menu-btn').addEventListener('click', () => UI.dropdown.classList.toggle('hidden'));
 document.getElementById('btn-tutorial').addEventListener('click', () => { UI.modalTutorial.classList.remove('hidden'); UI.dropdown.classList.add('hidden'); });
 document.getElementById('btn-close-tutorial').addEventListener('click', () => UI.modalTutorial.classList.add('hidden'));
@@ -202,24 +267,59 @@ function parseFileContent(content, isJson) {
     return { pts, conns };
 }
 
-document.getElementById('file-upload').addEventListener('change', e => {
-    const file = e.target.files[0]; if (!file) return;
-    const isJson = file.name.toLowerCase().endsWith('.json'); const reader = new FileReader();
-    reader.onload = ev => { const data = parseFileContent(ev.target.result, isJson); STATE.points = data.pts; STATE.connections = data.conns; STATE.history = []; STATE.redoStack = []; STATE.refPoints = []; STATE.refConnections = []; centerView(); };
-    reader.readAsText(file); UI.dropdown.classList.add('hidden'); e.target.value = '';
-});
+// --- NOVO SISTEMA DE UPLOAD (Incluindo DXF) ---
+function handleFileUpload(e, isReference = false) {
+    const file = e.target.files[0];
+    if (!file) return;
 
-document.getElementById('ref-upload').addEventListener('change', e => {
-    const file = e.target.files[0]; if (!file) return;
-    const isJson = file.name.toLowerCase().endsWith('.json'); const reader = new FileReader();
-    reader.onload = ev => { const data = parseFileContent(ev.target.result, isJson); STATE.refPoints = data.pts; STATE.refConnections = data.conns; import('./render.js').then(module => module.render()); };
-    reader.readAsText(file); UI.dropdown.classList.add('hidden'); e.target.value = '';
-});
+    const fileName = file.name.toLowerCase();
+    const reader = new FileReader();
+
+    reader.onload = async (ev) => {
+        const content = ev.target.result;
+        let data = { pts: [], conns: [] };
+
+        try {
+            if (fileName.endsWith('.dxf')) {
+                // Rota para DXF (Assíncrono)
+                data = await parseDXF(content);
+            } else {
+                // Rota Clássica (JSON, TXT, CSV)
+                const isJson = fileName.endsWith('.json');
+                data = parseFileContent(content, isJson);
+            }
+
+            if (isReference) {
+                STATE.refPoints = data.pts;
+                STATE.refConnections = data.conns;
+                import('./render.js').then(module => module.render());
+            } else {
+                STATE.points = data.pts;
+                STATE.connections = data.conns;
+                STATE.history = [];
+                STATE.redoStack = [];
+                STATE.refPoints = [];
+                STATE.refConnections = [];
+                centerView();
+            }
+        } catch (error) {
+            alert(error);
+        }
+        
+        UI.dropdown.classList.add('hidden');
+        e.target.value = ''; // Reseta o input
+    };
+
+    reader.readAsText(file);
+}
+
+document.getElementById('file-upload').addEventListener('change', (e) => handleFileUpload(e, false));
+document.getElementById('ref-upload').addEventListener('change', (e) => handleFileUpload(e, true));
 
 window.addEventListener('resize', () => { UI.canvas.width = UI.canvas.parentElement.clientWidth; UI.canvas.height = UI.canvas.parentElement.clientHeight; import('./render.js').then(module => module.render()); });
 UI.canvas.width = UI.canvas.parentElement.clientWidth; UI.canvas.height = UI.canvas.parentElement.clientHeight;
 
-// EXPORTS (Mantidos para simplificar, idealmente vão para export.js depois)
+// EXPORTS
 document.getElementById('btn-salvar-projeto').addEventListener('click', () => { const nA = (prompt("Nome do Backup:", "backup") || "backup").trim(); const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ pontos: STATE.points, linhas: STATE.connections })); a.download = nA + ".json"; a.click(); UI.dropdown.classList.add('hidden'); });
 document.getElementById('btn-exportar-pdf').addEventListener('click', () => { if (STATE.points.length === 0) return; const nO = prompt("Nome da Obra:", "LEVANTAMENTO") || "RELATORIO"; const { jsPDF } = window.jspdf; const doc = new jsPDF(); doc.setFillColor(30,30,30); doc.rect(0,0,210,35,'F'); doc.setTextColor(76,175,80); doc.setFontSize(22); doc.text("GEOCANVAS REPORT", 15, 18); const tC = document.createElement('canvas'); tC.width=UI.canvas.width; tC.height=UI.canvas.height; const tCtx = tC.getContext('2d'); tCtx.fillStyle='#121212'; tCtx.fillRect(0,0,tC.width,tC.height); tCtx.drawImage(UI.canvas,0,0); doc.addImage(tC.toDataURL('image/jpeg',0.8), 'JPEG', 15, 45, 180, 100); doc.autoTable({ startY: 155, head: [['ID', 'NORTE', 'ESTE', 'COTA']], body: STATE.points.map(p => [p.id, p.y.toFixed(3), p.x.toFixed(3), p.z.toFixed(3)]), headStyles: { fillColor: [76, 175, 80] } }); doc.save(nO + ".pdf"); UI.dropdown.classList.add('hidden'); });
 document.getElementById('btn-exportar-dxf').addEventListener('click', () => { if (STATE.points.length === 0) return; const nA = (prompt("Nome do arquivo DXF:", "projeto") || "projeto").trim(); let d = "0\nSECTION\n2\nENTITIES\n"; STATE.points.forEach(p => { d += `0\nPOINT\n8\nPONTOS\n10\n${p.x}\n20\n${p.y}\n30\n${p.z}\n`; const s = CONFIG.CROSS_SIZE; d += `0\nLINE\n8\nPONTOS_SYM\n10\n${p.x-s}\n20\n${p.y}\n30\n${p.z}\n11\n${p.x+s}\n21\n${p.y}\n31\n${p.z}\n`; d += `0\nLINE\n8\nPONTOS_SYM\n10\n${p.x}\n20\n${p.y-s}\n30\n${p.z}\n11\n${p.x}\n21\n${p.y+s}\n31\n${p.z}\n`; d += `0\nTEXT\n8\nPONTOS_ID\n10\n${p.x+0.15}\n20\n${p.y+0.15}\n30\n${p.z}\n40\n0.8\n1\n${p.id}\n`; }); STATE.connections.forEach(l => d += `0\nLINE\n8\nLIGACOES\n10\n${l.a.x}\n20\n${l.a.y}\n30\n${l.a.z}\n11\n${l.b.x}\n21\n${l.b.y}\n31\n${l.b.z}\n`); d += "0\nENDSEC\n0\nEOF\n"; const blob = new Blob([d], { type: "application/dxf" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nA + ".dxf"; a.click(); UI.dropdown.classList.add('hidden'); });
