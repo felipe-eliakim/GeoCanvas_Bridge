@@ -129,7 +129,7 @@ function updateHUD(ax, ay) {
     }
     
     if (STATE.currentTool === 'COLLECT' && !STATE.focusedPoint) { 
-        UI.hudText.innerHTML = `📍 <strong>Modo Coletor</strong><br><small style="color:#aaa;">Toque na tela para salvar um novo ponto.</small>`; 
+        UI.hudText.innerHTML = `📍 <strong>Modo Coletor</strong><br><small style="color:#aaa;">Toque em qualquer ponto vazio do mapa para cadastrar.</small>`; 
     }
     
     UI.hud.classList.toggle('hidden', !STATE.focusedPoint && !STATE.activePoint && STATE.currentTool !== 'CONTOUR' && STATE.currentTool !== 'COLLECT');
@@ -146,29 +146,62 @@ function centerView() {
     render();
 }
 
-// --- SISTEMA DE COLETA DE PONTO (Z MODAL) ---
+// --- ENGINE ALFANUMÉRICO DE SEQUÊNCIA (REGEXP) ---
+function generateNextName(lastId) {
+    if (!lastId) return "M1";
+    // Tenta quebrar o ID em duas partes: Texto (1) e Número final (2)
+    const match = lastId.match(/^([a-zA-ZÀ-ÿ_-]*?)(\d+)$/);
+    if (match) {
+        const prefix = match[1];
+        const currentNumber = parseInt(match[2], 10);
+        return prefix + (currentNumber + 1);
+    } else {
+        // Se o usuário digitou apenas texto (ex: "P"), a sequência vira "P1"
+        return lastId + "1";
+    }
+}
+
+// --- SISTEMA DE COLETA DE PONTO (Z + ID MODAL) ---
 let pendingPoint = null;
 const modalZ = document.getElementById('modal-z-input');
 const inputZ = document.getElementById('input-z-value');
+const inputId = document.getElementById('input-ponto-id');
 
 function openZPrompt(wX, wY) {
-    if(!modalZ || !inputZ) return;
+    if(!modalZ || !inputZ || !inputId) return;
     pendingPoint = { x: wX, y: wY };
-    modalZ.classList.remove('hidden');
+    
+    // Calcula dinamicamente a sugestão com base no ÚLTIMO ponto inserido pelo coletor
+    const collected = STATE.points.filter(p => p.isCollected);
+    let defaultSuggestion = "M1";
+    if (collected.length > 0) {
+        const lastCollectedPoint = collected[collected.length - 1];
+        defaultSuggestion = generateNextName(lastCollectedPoint.id);
+    }
+    
+    inputId.value = defaultSuggestion;
     inputZ.value = ''; 
+    modalZ.classList.remove('hidden');
+    
+    // Dá foco automático na cota para agilizar a digitação (Notebook)
     inputZ.focus(); 
 }
 
 function confirmCollectPoint() {
-    if (!pendingPoint || !inputZ || !modalZ) return;
+    if (!pendingPoint || !inputZ || !inputId || !modalZ) return;
+    
+    const finalId = inputId.value.trim() || `M${STATE.points.filter(p => p.isCollected).length + 1}`;
     const zVal = parseFloat(inputZ.value.replace(',', '.')) || 0;
     
-    const numPoints = STATE.points.filter(p => p.isCollected).length;
-    const newId = `M${numPoints + 1}`;
-    
+    // Trava antifraude de ID duplicado na lista ativa
+    if (STATE.points.some(p => p.id === finalId)) {
+        alert(`Aviso: Já existe um ponto com o nome "${finalId}" no projeto. Escolha uma identificação única.`);
+        return;
+    }
+
     saveState();
     STATE.points.push({ 
-        id: newId, 
+        id: finalId, 
         x: pendingPoint.x, 
         y: pendingPoint.y, 
         z: zVal, 
@@ -185,7 +218,11 @@ const btnConfirmZ = document.getElementById('btn-confirm-z');
 const btnCancelZ = document.getElementById('btn-cancel-z');
 if (btnConfirmZ) btnConfirmZ.addEventListener('click', confirmCollectPoint);
 if (btnCancelZ) btnCancelZ.addEventListener('click', () => { pendingPoint = null; modalZ.classList.add('hidden'); });
+
+// Atalho de teclado: Apertar Enter em qualquer caixa do modal salva o ponto
 if (inputZ) inputZ.addEventListener('keydown', e => { if (e.key === 'Enter') confirmCollectPoint(); });
+if (inputId) inputId.addEventListener('keydown', e => { if (e.key === 'Enter') confirmCollectPoint(); });
+
 
 // --- EVENTOS NAVEGAÇÃO / TECLADO ---
 window.addEventListener('keydown', e => {
@@ -264,7 +301,6 @@ window.addEventListener('mouseup', e => {
 });
 
 // --- TOUCH MOBILE BLINDADO ---
-// CORREÇÃO: Variável declarada explicitamente para evitar ReferenceError fatal
 const elCrosshair = document.getElementById('crosshair'); 
 let initialPinchDist = null, initialScale = 1;
 if (elCrosshair) elCrosshair.style.transition = 'opacity 0.2s'; 
