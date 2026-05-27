@@ -16,6 +16,7 @@ export const STATE = {
     tinMesh: [],
     refPoints: [],
     refConnections: [],
+    refVisualEntities: [], // Guarda linhas, círculos, arcos e textos puros do CAD
     showMesh: false,
     currentTool: 'VIEW',
     activePoint: null,

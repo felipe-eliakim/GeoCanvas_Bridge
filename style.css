@@ -30,10 +30,10 @@ button { padding: 14px; border-radius: 8px; font-size: 15px; font-weight: 700; b
 #mesh-filter-container { margin-top: 12px; border-top: 1px solid #444; padding-top: 10px; }
 #mesh-filter-slider { width: 100%; accent-color: #4CAF50; height: 30px; cursor: pointer; }
 #bottom-bar { height: 90px; background-color: #1e1e1e; border-top: 1px solid #333; display: flex; justify-content: space-around; align-items: center; z-index: 30; padding: 0 10px; }
-.tool-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 75px; height: 75px; border-radius: 14px; color: #777; transition: 0.2s; cursor: pointer; }
+.tool-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 70px; height: 75px; border-radius: 14px; color: #777; transition: 0.2s; cursor: pointer; }
 .tool-icon { font-size: 32px; margin-bottom: 4px; }
 .tool-name { font-size: 12px; font-weight: 700; }
 .tool-btn.active { color: #4CAF50; background-color: #2a3a2a; }
 .hidden { display: none !important; }
-#modal-tutorial { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:300; display:flex; justify-content:center; align-items:center; }
+#modal-tutorial, #modal-z-input { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:300; display:flex; justify-content:center; align-items:center; }
 .modal-content { background:#262626; padding:25px; border-radius:16px; border:1px solid #4CAF50; max-width:400px; width:90%; }
