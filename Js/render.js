@@ -62,6 +62,10 @@ export function render() {
     const offsetX = STATE.view.offsetX;
     const offsetY = STATE.view.offsetY;
 
+    // Configurações Globais de Texto para a Máscara Anti-Sobreposição
+    UI.ctx.lineJoin = 'round';
+    UI.ctx.miterLimit = 2;
+
     // === DESENHAR PLANTA DE FUNDO CAD ===
     if (STATE.refVisualEntities && STATE.refVisualEntities.length > 0) {
         UI.ctx.lineWidth = 1;
@@ -105,16 +109,22 @@ export function render() {
         });
         UI.ctx.stroke();
 
-        // 3. Textos Otimizados (PADRÃO COERENTE DE CORES E SIZES)
+        // 3. Textos do CAD com Tamanho Fixo e Máscara
         if (scale > 0.8) { 
-            UI.ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
-            UI.ctx.font = '11px Roboto, sans-serif'; // FIXO: Mesmo tamanho para evitar disparidades
+            UI.ctx.font = '11px Roboto, sans-serif'; 
             
             STATE.refVisualEntities.forEach(ent => {
                 if (ent.type === 'TEXT') {
                     const tx = ent.position.x * scale + offsetX;
                     const ty = -ent.position.y * scale + offsetY;
                     if (tx > -50 && tx < UI.canvas.width + 50 && ty > -50 && ty < UI.canvas.height + 50) {
+                        // Aplica contorno escuro protetor por trás
+                        UI.ctx.strokeStyle = '#121212';
+                        UI.ctx.lineWidth = 3;
+                        UI.ctx.strokeText(ent.text, tx, ty);
+                        
+                        // Desenha o texto real por cima
+                        UI.ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
                         UI.ctx.fillText(ent.text, tx, ty);
                     }
                 }
@@ -122,7 +132,7 @@ export function render() {
         }
     }
 
-    // Vértices de atração ocultos
+    // Vértices de atração ocultos do Snap
     if (STATE.refPoints.length > 0 && scale > 1.5) {
         UI.ctx.fillStyle = 'rgba(255, 152, 0, 0.15)';
         STATE.refPoints.forEach(p => {
@@ -163,16 +173,25 @@ export function render() {
         UI.ctx.stroke();
     });
 
-    // Pontos do Levantamento Ativo (PADRONIZADO TAMBÉM EM 11PX)
+    // Pontos do Levantamento Ativo / Locação (Travados em 11px com Máscara)
     STATE.points.forEach(p => {
         const tx = p.x * scale + offsetX, ty = -p.y * scale + offsetY;
         if (tx < -100 || tx > UI.canvas.width + 100 || ty < -100 || ty > UI.canvas.height + 100) return;
+        
         UI.ctx.strokeStyle = '#00ffcc'; UI.ctx.lineWidth = 1.5; UI.ctx.beginPath();
         UI.ctx.moveTo(tx-5, ty); UI.ctx.lineTo(tx+5, ty); UI.ctx.moveTo(tx, ty-5); UI.ctx.lineTo(tx, ty+5); UI.ctx.stroke();
+        
         if(scale > 0.08) { 
-            UI.ctx.fillStyle = p.isCollected ? '#00ffcc' : '#ffffff'; // Destaca pontos coletados em turquesa
-            UI.ctx.font = '11px Roboto, sans-serif'; // FIXO: Idêntico ao padrão adotado
-            UI.ctx.fillText(p.id, tx+7, ty-7); 
+            UI.ctx.font = '11px Roboto, sans-serif'; // TAMANHO DA FONTE PADRONIZADO E ABSOLUTO
+            
+            // Desenha a borda preta espessa eliminando qualquer sobreposição visual de fundo
+            UI.ctx.strokeStyle = '#121212';
+            UI.ctx.lineWidth = 3.5;
+            UI.ctx.strokeText(p.id, tx + 7, ty - 7);
+            
+            // Pinta o miolo do texto
+            UI.ctx.fillStyle = p.isCollected ? '#00ffcc' : '#ffffff'; 
+            UI.ctx.fillText(p.id, tx + 7, ty - 7); 
         }
     });
 
